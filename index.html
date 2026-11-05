@@ -365,17 +365,19 @@ a[data-disc]{cursor:pointer;color:var(--ptext,var(--accent));text-decoration:und
 .rp-doc{--surface:#fff;--surface2:#f4f5f8;--text:#1f1e1b;--muted:#5a5a55;--border:#d9d9d2;--accent:#185FA5;--accent-fg:#fff;--accent-soft:#e8eefc;--pos:#16703f;--neg:#b3261e;--warnbg:#fff4d6;--warnfg:#6b4a00;--shadow:none;color-scheme:light;background:#fff;color:#1f1e1b}
 .rp-doc .muted,.rp-doc small{color:#55554f}
 
-/* Anleitung je Tab (Mouse-over) */
-#nav-tip{position:fixed;z-index:9999;width:370px;max-width:calc(100vw - 16px);box-sizing:border-box;padding:14px 16px 12px;background:var(--surface,#fff);color:var(--text,#1f1e1b);border:1px solid var(--border,#d9d9d2);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.22);font-size:13px;line-height:1.45;pointer-events:none;opacity:0;transform:translateY(2px);transition:opacity .12s,transform .12s;visibility:hidden}
+/* Anleitung je Tab (Mouse-over): schwebendes Hinweisfenster, unabhängig vom Theme hellgrau mit schwarzem Text */
+#nav-tip{position:fixed;z-index:9999;width:380px;max-width:calc(100vw - 16px);box-sizing:border-box;padding:14px 16px 14px;background:#e6e8ec;color:#000;border:1px solid #b9bec7;border-radius:14px;
+  box-shadow:0 2px 4px rgba(0,0,0,.10),0 14px 28px rgba(0,0,0,.28),0 32px 64px rgba(0,0,0,.22);font-size:13px;line-height:1.45;pointer-events:none;opacity:0;transform:translateY(6px) scale(.98);transition:opacity .15s,transform .15s;visibility:hidden;color-scheme:light}
 #nav-tip.on{opacity:1;transform:none;visibility:visible}
-#nav-tip .gd-h{font-weight:700;font-size:14.5px;margin-bottom:2px}
-#nav-tip .gd-z{margin:0 0 8px;color:var(--muted,#5a5a55)}
-#nav-tip .gd-s{margin:8px 0 0;padding:7px 10px;border-radius:8px;background:var(--surface2,#f4f5f8);border-left:3px solid var(--border,#d9d9d2)}
-#nav-tip .gd-s b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px}
+#nav-tip .gd-k{display:inline-block;margin:0 0 6px;padding:2px 9px;border-radius:999px;background:#000;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+#nav-tip .gd-h{font-weight:700;font-size:15px;margin-bottom:2px;color:#000}
+#nav-tip .gd-z{margin:0 0 8px;color:#1a1a1a}
+#nav-tip .gd-s{margin:8px 0 0;padding:7px 10px;border-radius:8px;background:#f5f6f8;color:#000;border-left:4px solid #8a8f99}
+#nav-tip .gd-s b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px;color:#000}
 #nav-tip .gd-s.must{border-left-color:#d9822b}
 #nav-tip .gd-s.opt{border-left-color:#2a78d6}
 #nav-tip .gd-s.wk{border-left-color:#1baf7a}
-#nav-tip ul{margin:0;padding-left:17px}#nav-tip li{margin:2px 0}
+#nav-tip ul{margin:0;padding-left:17px}#nav-tip li{margin:2px 0;color:#000}
 </style></head>
 <body>
 <header><div id="bgbar"><label>Seitenhintergrund <select id="bg-sel"></select></label><input type="color" id="bg-col" value="#f5f4ef" title="Eigene Farbe" hidden><button type="button" id="lay-btn" class="btn sm">Layout bearbeiten</button><label>Sektionen <select id="card-sel"></select></label><input type="color" id="card-col" value="#ffffff" title="Eigene Farbe" hidden></div><h1>Rentenplanung Schweiz</h1>
@@ -3623,7 +3625,7 @@ const MP_PORT = [
     const sec = (c, h, a) => a && a.length ? '<div class="gd-s ' + c + '"><b>' + h + '</b><ul>' + li(a) + '</ul></div>' : '';
     function html(key, label) {
       const g = GUIDE[key]; if (!g) return '';
-      return '<div class="gd-h">' + esc(label) + '</div><p class="gd-z">' + esc(g.z) + '</p>' + sec('must', 'Eingeben (nötig)', g.must) + sec('opt', 'Eingeben (optional)', g.opt) + sec('wk', 'Wirkung', g.w);
+      return '<div class="gd-k">ⓘ Anleitung</div><div class="gd-h">' + esc(label) + '</div><p class="gd-z">' + esc(g.z) + '</p>' + sec('must', 'Eingeben (nötig)', g.must) + sec('opt', 'Eingeben (optional)', g.opt) + sec('wk', 'Wirkung', g.w);
     }
     function hide() { clearTimeout(timer); if (tip) tip.classList.remove('on'); if (cur) { cur.removeAttribute('aria-describedby'); cur = null; } }
     function show(btn) {
