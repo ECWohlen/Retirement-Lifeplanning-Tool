@@ -3411,38 +3411,46 @@ const MP_PORT = [
     check();
   }
 
-  /* ---------- Kunden: gespeicherte Stände (JSON) mit Name, Datum und Zeitstempel ---------- */
+  /* ---------- Kunden: ein Eintrag pro Kunde; Sicherung als JSON mit Name, Datum, Uhrzeit ---------- */
   const KD_KEY = 'rentenplanung_kunden_v1';
   const KD = { sel: '', msg: '', bad: false };
   const kdP2 = n => String(n).padStart(2, '0');
-  const kdName = s => String((s && s.profile && s.profile.name) || '').trim() || 'Ohne Name';
+  const kdName = s => String((s && s.profile && s.profile.name) || '').trim();
+  const kdKey = n => String(n).trim().toLowerCase();
   const kdSlug = n => n.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue').replace(/ß/g, 'ss')
     .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'ohne-name';
   const kdFmt = d => kdP2(d.getDate()) + '.' + kdP2(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + kdP2(d.getHours()) + ':' + kdP2(d.getMinutes()) + ':' + kdP2(d.getSeconds());
+  const kdFmtS = d => kdFmt(d).slice(0, 16);
   const kdFile = (name, d) => 'rentenplanung-' + kdSlug(name) + '-' + d.getFullYear() + '-' + kdP2(d.getMonth() + 1) + '-' + kdP2(d.getDate()) + '_' + kdP2(d.getHours()) + kdP2(d.getMinutes()) + kdP2(d.getSeconds()) + '.json';
-  function kdList() { try { const a = JSON.parse(localStorage.getItem(KD_KEY) || '[]'); return Array.isArray(a) ? a.filter(x => x && x.id && x.data) : []; } catch (e) { return []; } }
+  // Liste lesen: je Name nur der neueste Stand (ältere Mehrfacheinträge werden zusammengeführt)
+  function kdList() {
+    let a = []; try { a = JSON.parse(localStorage.getItem(KD_KEY) || '[]'); } catch (e) { }
+    if (!Array.isArray(a)) a = [];
+    const m = {};
+    a.filter(x => x && x.name && x.data && x.savedAt).forEach(x => { const k = kdKey(x.name); if (!m[k] || x.savedAt > m[k].savedAt) m[k] = { id: k, name: x.name, savedAt: x.savedAt, data: x.data }; });
+    return Object.values(m);
+  }
   function kdWrite(a) { try { localStorage.setItem(KD_KEY, JSON.stringify(a)); return true; } catch (e) { return false; } }
   function kdMeta(name, d) {
     return { name, savedAt: d.toISOString(), local: kdFmt(d), date: d.getFullYear() + '-' + kdP2(d.getMonth() + 1) + '-' + kdP2(d.getDate()), time: kdP2(d.getHours()) + ':' + kdP2(d.getMinutes()) + ':' + kdP2(d.getSeconds()), app: 'Rentenplanung Schweiz' };
   }
-  // Eintrag in die Liste aufnehmen (gleicher Name und gleicher Zeitstempel = ersetzen)
-  function kdAdd(meta, data) {
+  // Kunde in die Liste aufnehmen bzw. ersetzen; mit force=false bleibt ein neuerer vorhandener Stand erhalten
+  function kdAdd(meta, data, force) {
     const d = JSON.parse(JSON.stringify(data)); delete d.meta;
-    const id = meta.savedAt + '|' + meta.name, list = kdList().filter(x => x.id !== id);
-    list.push({ id, name: meta.name, savedAt: meta.savedAt, data: d });
-    KD.sel = id; return kdWrite(list);
+    const id = kdKey(meta.name), list = kdList(), old = list.find(x => x.id === id);
+    if (old && !force && old.savedAt >= meta.savedAt) { KD.sel = id; return true; }
+    kdWrite(list.filter(x => x.id !== id).concat([{ id, name: meta.name, savedAt: meta.savedAt, data: d }]));
+    KD.sel = id; return kdList().some(x => x.id === id && x.savedAt === meta.savedAt);
   }
-  function kdSave(download) {
-    const now = new Date(), name = kdName(S), meta = kdMeta(name, now);
-    const out = Object.assign({ meta }, JSON.parse(JSON.stringify(S))); out.meta = meta;
-    const ok = kdAdd(meta, S);
-    if (download) {
-      const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }), a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = kdFile(name, now); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    }
+  function kdSave() {
+    const name = kdName(S);
+    if (!name) { alert('Bitte zuerst den Namen / die Bezeichnung des Kunden eintragen.'); const i = $('#p-kunden input[data-k="name"]'); if (i) i.focus(); return; }
+    const now = new Date(), meta = kdMeta(name, now), out = Object.assign({ meta }, JSON.parse(JSON.stringify(S))); out.meta = meta;
+    const ok = kdAdd(meta, S, true);
+    const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = kdFile(name, now); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     KD.bad = !ok;
-    KD.msg = ok ? 'Gespeichert: «' + name + '», ' + meta.local + (download ? ' (Datei heruntergeladen und in der Liste abgelegt).' : '.')
-      : 'Die Datei wurde heruntergeladen, aber der Browserspeicher ist voll – der Stand konnte nicht in die Liste aufgenommen werden. Bitte nicht mehr benötigte Stände löschen.';
+    KD.msg = ok ? '«' + name + '» gespeichert (' + meta.local + '). Die Datei ' + kdFile(name, now) + ' wurde heruntergeladen.' : 'Datei heruntergeladen, aber der Browserspeicher ist voll: «' + name + '» steht nicht in der Liste.';
     if (curTab === 'kunden') rKunden();
   }
   function kdApply(o) {
@@ -3454,86 +3462,88 @@ const MP_PORT = [
     if (!S.inv) S.inv = freshState().inv;
     save();
   }
-  function kdLoad(id) {
-    const e = kdList().find(x => x.id === id); if (!e) return;
-    if (!confirm('«' + e.name + '» (' + kdFmt(new Date(e.savedAt)) + ') laden? Ihre aktuellen Eingaben werden ersetzt. Nicht gespeicherte Änderungen gehen verloren.')) return;
+  function kdLoad() {
+    const e = kdList().find(x => x.id === KD.sel); if (!e) return;
+    if (!confirm('«' + e.name + '» laden? Ihre aktuellen Eingaben werden ersetzt. Nicht gespeicherte Änderungen gehen verloren.')) return;
     kdApply(JSON.parse(JSON.stringify(e.data)));
-    KD.sel = id; KD.bad = false; KD.msg = 'Geladen: «' + e.name + '», ' + kdFmt(new Date(e.savedAt)) + '.';
-    showTab('kunden');
-  }
-  function kdDelete(id) {
-    const e = kdList().find(x => x.id === id); if (!e) return;
-    if (!confirm('«' + e.name + '» (' + kdFmt(new Date(e.savedAt)) + ') aus der Liste löschen? Bereits heruntergeladene Dateien bleiben bestehen.')) return;
-    kdWrite(kdList().filter(x => x.id !== id)); KD.sel = ''; KD.bad = false; KD.msg = 'Gelöscht.'; rKunden();
-  }
-  function kdDownload(id) {
-    const e = kdList().find(x => x.id === id); if (!e) return;
-    const d = new Date(e.savedAt), out = Object.assign({ meta: kdMeta(e.name, d) }, JSON.parse(JSON.stringify(e.data)));
-    const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }), a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = kdFile(e.name, d); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  }
-  // Datei laden: wird zusätzlich in die Liste aufgenommen (ältere Dateien ohne Zeitstempel: Änderungsdatum der Datei)
-  function kdImport(o, f) {
-    let m = o.meta && o.meta.savedAt && !isNaN(new Date(o.meta.savedAt)) ? o.meta : null;
-    const name = (m && String(m.name || '').trim()) || kdName(o), d = m ? new Date(m.savedAt) : new Date(f && f.lastModified ? f.lastModified : Date.now());
-    const ok = kdAdd(kdMeta(name, d), o);
-    kdApply(o); KD.bad = !ok; KD.msg = 'Datei geladen: «' + name + '», ' + kdFmt(d) + (ok ? ' (in der Liste abgelegt).' : ' (Liste voll – nicht abgelegt).');
+    KD.bad = false; KD.msg = '«' + e.name + '» geladen (Stand ' + kdFmtS(new Date(e.savedAt)) + ').';
     showTab('kunden');
   }
   function kdNew() {
-    if (!confirm('Neuen Kunden anlegen? Die aktuellen Eingaben werden geleert. Nicht gespeicherte Änderungen gehen verloren (zuerst «Stand speichern» wählen, falls nötig).')) return;
+    if (!confirm('Neuen Kunden anlegen? Die aktuellen Eingaben werden geleert. Nicht gespeicherte Änderungen gehen verloren (zuerst «Speichern» wählen, falls nötig).')) return;
     const n = prompt('Name / Bezeichnung des neuen Kunden:', ''); if (n == null) return;
     const name = n.trim(); if (!name) { alert('Bitte einen Namen eingeben.'); return; }
+    if (kdList().some(x => x.id === kdKey(name)) && !confirm('Ein Kunde «' + name + '» existiert bereits und wird dabei überschrieben. Fortfahren?')) return;
     kdApply(freshState()); S.profile.name = name; save();
-    const ok = kdAdd(kdMeta(name, new Date()), S);
+    const ok = kdAdd(kdMeta(name, new Date()), S, true);
     KD.bad = !ok; KD.msg = 'Neuer Kunde angelegt: «' + name + '».';
     showTab('profil');
   }
-  function kdAll() {
-    if (!kdList().length) return;
-    if (!confirm('Alle in diesem Browser gespeicherten Stände aus der Liste löschen? Heruntergeladene Dateien bleiben bestehen.')) return;
-    try { localStorage.removeItem(KD_KEY); } catch (e) { } KD.sel = ''; KD.bad = false; KD.msg = 'Liste geleert.'; rKunden();
+  function kdDelete() {
+    const e = kdList().find(x => x.id === KD.sel); if (!e) return;
+    if (!confirm('«' + e.name + '» aus der Liste löschen? Bereits heruntergeladene Dateien bleiben bestehen.')) return;
+    kdWrite(kdList().filter(x => x.id !== e.id)); KD.sel = ''; KD.bad = false; KD.msg = '«' + e.name + '» aus der Liste gelöscht.'; rKunden();
   }
+  // Wiederherstellen: eine oder mehrere Dateien auf einmal; je Kunde gilt der neueste Stand
+  function kdRestore(files) {
+    files = [...files]; if (!files.length) return;
+    Promise.all(files.map(f => new Promise(res => {
+      const r = new FileReader(); r.onload = () => { try { const o = JSON.parse(r.result); if (!o || o.v !== 1 || !o.profile) throw 0; res({ o, f }); } catch (e) { res(null); } }; r.onerror = () => res(null); r.readAsText(f);
+    }))).then(rs => {
+      const good = rs.filter(Boolean), bad = rs.length - good.length, ids = new Set(); let one = null;
+      good.forEach(({ o, f }) => {
+        const m = o.meta && o.meta.savedAt && !isNaN(new Date(o.meta.savedAt)) ? o.meta : null;
+        const name = (m && String(m.name || '').trim()) || kdName(o) || 'Ohne Name', d = m ? new Date(m.savedAt) : new Date(f.lastModified || Date.now());
+        const before = kdList().find(x => x.id === kdKey(name)); kdAdd(kdMeta(name, d), o, false);
+        const now = kdList().find(x => x.id === kdKey(name)); if (now && (!before || before.savedAt !== now.savedAt)) ids.add(now.id); one = { o, name, d };
+      });
+      KD.bad = !good.length;
+      if (good.length === 1) { kdApply(JSON.parse(JSON.stringify(one.o))); KD.sel = kdKey(one.name); KD.msg = '«' + one.name + '» aus Datei geladen (Stand ' + kdFmtS(one.d) + ').'; showTab('kunden'); return; }
+      const n = ids.size;
+      KD.msg = good.length ? n + ' Kunde(n) wiederhergestellt' + (good.length > n ? ' (ältere Stände desselben Kunden übersprungen)' : '') + (bad ? ', ' + bad + ' Datei(en) nicht lesbar' : '') + '.' : 'Keine gültige Datei erkannt.';
+      rKunden();
+    });
+  }
+  function kdImport(o, f) { kdRestore([f]); }
   function kdInfo() {
     const e = kdList().find(x => x.id === KD.sel), el = $('#kd-info'); if (!el) return;
-    const dis = !e; ['load', 'dl', 'del'].forEach(k => { const b = $('[data-kd="' + k + '"]'); if (b) b.disabled = dis; });
-    el.innerHTML = e ? 'Name / Bezeichnung: <b>' + esc(e.name) + '</b><br>Gespeichert am <b>' + kdFmt(new Date(e.savedAt)) + '</b> Uhr · ' + Math.max(1, Math.round(JSON.stringify(e.data).length / 1024)) + ' KB'
-      : 'Noch kein Stand gespeichert. Mit «Stand speichern» legen Sie den aktuellen Stand hier ab.';
-  }
-  function kdPrev() {
-    const el = $('#kd-prev'); if (el) el.textContent = kdFile(kdName(S), new Date());
+    ['load', 'del'].forEach(k => { const b = $('[data-kd="' + k + '"]'); if (b) b.disabled = !e; });
+    el.textContent = e ? 'Letzte Speicherung: ' + kdFmt(new Date(e.savedAt)) + ' Uhr' : 'Noch kein Kunde gespeichert.';
   }
   function rKunden() {
-    const L = kdList().sort((a, b) => b.savedAt.localeCompare(a.savedAt)), G = {};
-    L.forEach(x => (G[x.name] = G[x.name] || []).push(x));
+    const L = kdList().sort((a, b) => a.name.localeCompare(b.name, 'de'));
     if (!L.some(x => x.id === KD.sel)) KD.sel = L.length ? L[0].id : '';
-    const opts = Object.keys(G).sort((a, b) => a.localeCompare(b, 'de')).map(n => '<optgroup label="' + esc(n) + ' (' + G[n].length + ')">' + G[n].map(x => '<option value="' + esc(x.id) + '"' + (x.id === KD.sel ? ' selected' : '') + '>' + esc(x.name) + ' · ' + kdFmt(new Date(x.savedAt)) + '</option>').join('') + '</optgroup>').join('');
+    const opts = L.map(x => '<option value="' + esc(x.id) + '"' + (x.id === KD.sel ? ' selected' : '') + '>' + esc(x.name) + ' · ' + kdFmtS(new Date(x.savedAt)) + '</option>').join('');
     const P = S.profile;
     $('#p-kunden').innerHTML = `
       <div class="card"><h2>Kunden</h2>
-        <p class="muted">Gespeicherte Stände dieses Browsers, geordnet nach Name / Bezeichnung und Zeitpunkt der Speicherung. Wählen Sie einen Stand und laden Sie ihn. Dateien aus Ihrem Download-Ordner erscheinen hier, sobald Sie sie unter «Daten» einlesen.</p>
         ${KD.msg ? `<div class="verdict ${KD.bad ? 'bad' : 'good'}" id="kd-msg" role="status">${esc(KD.msg)}</div>` : ''}
-        <div class="fld"><label for="kd-sel">Gespeicherter Stand (${L.length})</label><div class="ctl"><select id="kd-sel" ${L.length ? '' : 'disabled'}>${opts || '<option>– noch keine gespeicherten Stände –</option>'}</select></div></div>
-        <p class="muted small" id="kd-info"></p>
-        <div class="row gap wrap"><button class="btn pri" data-kd="load">Laden</button><button class="btn" data-kd="dl">Als Datei herunterladen</button><button class="btn danger" data-kd="del">Löschen</button><button class="btn" data-kd="new" title="Leert die Eingaben und legt einen neuen Kunden mit Namen an">＋ Neuer Kunde</button></div></div>
-      <div class="card"><h2>Aktuellen Stand speichern</h2>
-        <div class="fgrid">${inp('Name / Bezeichnung', 'profile', null, 'name', P.name, { type: 'text', hint: 'Dieselbe Angabe wie unter «Profil &amp; Wohnort → Persönliche Angaben».' })}</div>
-        <p class="muted small">Dateiname: <b id="kd-prev"></b><br>Die Datei enthält Name / Bezeichnung, Datum und Uhrzeit der Speicherung.</p>
-        <div class="row gap wrap"><button class="btn pri" data-kd="save">Stand speichern (JSON)</button><button class="btn" data-kd="save-list" title="Legt den Stand nur in der Liste dieses Browsers ab, ohne Datei">Nur in der Liste ablegen</button></div></div>
-      <div class="card"><h2>Daten</h2>
-        <p class="muted">Alle Eingaben bleiben ausschliesslich in Ihrem Browser (kein Server). Sichern Sie Ihre Daten regelmässig als Datei und teilen Sie diese Datei bei Bedarf.</p>
-        <div class="row gap wrap"><label class="btn">Datei laden (JSON)<input type="file" id="imp" accept=".json,application/json" hidden></label>
-        <button class="btn" data-act="blank" title="Speichert diese Anwendung als HTML-Datei ohne Ihre Daten zum Weitergeben">Leere Version speichern (zum Weitergeben)</button><button class="btn" data-act="demo">Beispieldaten laden</button><button class="btn" data-act="print">Drucken / PDF</button><button class="btn danger" data-act="reset" title="Löscht die aktuellen Eingaben; die Liste gespeicherter Stände bleibt erhalten">Alles zurücksetzen</button><button class="btn danger" data-kd="all">Liste gespeicherter Stände leeren</button></div></div>`;
-    kdInfo(); kdPrev();
+        <div class="fld"><label for="kd-sel">Kunde auswählen (${L.length})</label><div class="ctl"><select id="kd-sel" ${L.length ? '' : 'disabled'}>${opts || '<option>– noch kein Kunde gespeichert –</option>'}</select></div><small id="kd-info"></small></div>
+        <div class="row gap wrap"><button class="btn pri" data-kd="load">Laden</button><button class="btn" data-kd="new">＋ Neuer Kunde</button></div></div>
+      <div class="card"><h2>Aktueller Kunde speichern</h2>
+        <div class="fgrid">${inp('Name / Bezeichnung', 'profile', null, 'name', P.name, { type: 'text', hint: 'Wird auch unter «Profil &amp; Wohnort» geführt. Ein neuer Name legt einen neuen Kunden an.' })}</div>
+        <div class="row gap wrap"><button class="btn pri" data-kd="save">Speichern (JSON)</button></div>
+        <p class="muted small">Speichert den Kunden in der Liste und lädt die Datei mit Namen, Datum und Uhrzeit herunter.</p></div>
+      <div class="card"><h2>Wiederherstellen</h2>
+        <p class="muted">Nach dem Löschen des Browserspeichers: alle Kunden-Dateien auf einmal auswählen. Pro Kunde zählt der neueste Stand.</p>
+        <div class="row gap wrap"><label class="btn pri">Dateien einlesen<input type="file" id="kd-files" accept=".json,application/json" multiple hidden></label></div></div>
+      <details class="card"><summary><b>Weitere Funktionen</b></summary>
+        <div class="row gap wrap" style="margin-top:12px"><button class="btn" data-act="demo">Beispieldaten laden</button><button class="btn" data-act="print">Drucken / PDF</button>
+        <button class="btn" data-act="blank" title="Speichert diese Anwendung als HTML-Datei ohne Ihre Daten zum Weitergeben">Leere Version speichern (zum Weitergeben)</button>
+        <button class="btn danger" data-act="reset" title="Leert die aktuellen Eingaben; die Kundenliste bleibt erhalten">Eingaben leeren</button>
+        <button class="btn danger" data-kd="del">Ausgewählten Kunden aus der Liste löschen</button></div>
+        <p class="muted small">Alle Eingaben bleiben ausschliesslich in Ihrem Browser (kein Server).</p></details>`;
+    kdInfo();
   }
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-kd]'); if (!b || b.disabled) return;
     const a = b.dataset.kd;
-    if (a === 'save') kdSave(true); else if (a === 'save-list') kdSave(false);
-    else if (a === 'load') kdLoad(KD.sel); else if (a === 'del') kdDelete(KD.sel); else if (a === 'dl') kdDownload(KD.sel); else if (a === 'all') kdAll(); else if (a === 'new') kdNew();
+    if (a === 'save') kdSave(); else if (a === 'load') kdLoad(); else if (a === 'del') kdDelete(); else if (a === 'new') kdNew();
   });
-  document.addEventListener('change', e => { if (e.target.id === 'kd-sel') { KD.sel = e.target.value; KD.msg = ''; const m = $('#kd-msg'); if (m) m.remove(); kdInfo(); } });
-  document.addEventListener('input', e => { if (curTab === 'kunden' && e.target.dataset && e.target.dataset.s === 'profile' && e.target.dataset.k === 'name') setTimeout(kdPrev, 0); });
+  document.addEventListener('change', e => {
+    if (e.target.id === 'kd-sel') { KD.sel = e.target.value; KD.msg = ''; const m = $('#kd-msg'); if (m) m.remove(); kdInfo(); }
+    else if (e.target.id === 'kd-files') { kdRestore(e.target.files); e.target.value = ''; }
+  });
 
   function rAnlage() {
     const I = S.inv, P = S.profile;
