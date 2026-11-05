@@ -364,6 +364,18 @@ a[data-disc]{cursor:pointer;color:var(--ptext,var(--accent));text-decoration:und
 /* Management Report: immer helles Papier – unabhängig von Dunkel-/Farbdesign der App (Kontrast) */
 .rp-doc{--surface:#fff;--surface2:#f4f5f8;--text:#1f1e1b;--muted:#5a5a55;--border:#d9d9d2;--accent:#185FA5;--accent-fg:#fff;--accent-soft:#e8eefc;--pos:#16703f;--neg:#b3261e;--warnbg:#fff4d6;--warnfg:#6b4a00;--shadow:none;color-scheme:light;background:#fff;color:#1f1e1b}
 .rp-doc .muted,.rp-doc small{color:#55554f}
+
+/* Anleitung je Tab (Mouse-over) */
+#nav-tip{position:fixed;z-index:9999;width:370px;max-width:calc(100vw - 16px);box-sizing:border-box;padding:14px 16px 12px;background:var(--surface,#fff);color:var(--text,#1f1e1b);border:1px solid var(--border,#d9d9d2);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.22);font-size:13px;line-height:1.45;pointer-events:none;opacity:0;transform:translateY(2px);transition:opacity .12s,transform .12s;visibility:hidden}
+#nav-tip.on{opacity:1;transform:none;visibility:visible}
+#nav-tip .gd-h{font-weight:700;font-size:14.5px;margin-bottom:2px}
+#nav-tip .gd-z{margin:0 0 8px;color:var(--muted,#5a5a55)}
+#nav-tip .gd-s{margin:8px 0 0;padding:7px 10px;border-radius:8px;background:var(--surface2,#f4f5f8);border-left:3px solid var(--border,#d9d9d2)}
+#nav-tip .gd-s b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px}
+#nav-tip .gd-s.must{border-left-color:#d9822b}
+#nav-tip .gd-s.opt{border-left-color:#2a78d6}
+#nav-tip .gd-s.wk{border-left-color:#1baf7a}
+#nav-tip ul{margin:0;padding-left:17px}#nav-tip li{margin:2px 0}
 </style></head>
 <body>
 <header><div id="bgbar"><label>Seitenhintergrund <select id="bg-sel"></select></label><input type="color" id="bg-col" value="#f5f4ef" title="Eigene Farbe" hidden><button type="button" id="lay-btn" class="btn sm">Layout bearbeiten</button><label>Sektionen <select id="card-sel"></select></label><input type="color" id="card-col" value="#ffffff" title="Eigene Farbe" hidden></div><h1>Rentenplanung Schweiz</h1>
@@ -3544,6 +3556,97 @@ const MP_PORT = [
     if (e.target.id === 'kd-sel') { KD.sel = e.target.value; KD.msg = ''; const m = $('#kd-msg'); if (m) m.remove(); kdInfo(); }
     else if (e.target.id === 'kd-files') { kdRestore(e.target.files); e.target.value = ''; }
   });
+
+  /* ---------- Anleitung je Tab (Mouse-over / Fokus in der Seitenleiste) ---------- */
+  const GUIDE = {
+    kunden: { z: 'Kunden anlegen, speichern und wieder aufrufen.',
+      must: ['Name / Bezeichnung des Kunden (nötig zum Speichern)'],
+      opt: ['«＋ Neuer Kunde» legt einen leeren Stand an', '«Dateien einlesen» stellt Kunden nach dem Löschen des Browserspeichers wieder her'],
+      w: ['«Speichern (JSON)» sichert den Kunden in der Liste und als Datei mit Name, Datum und Uhrzeit', '«Laden» ersetzt die aktuellen Eingaben durch den gewählten Kunden'] },
+    start: { z: 'Überblick über den Stand Ihrer Planung.',
+      must: ['Nichts, dieser Tab zeigt nur an'],
+      w: ['Kernaussagen, Kapitalverlauf im Ruhestand und der Stand der Erfassung', 'Die Links führen zu den nächsten offenen Schritten'] },
+    budget: { z: 'Ihre Ausgaben im Ruhestand.',
+      must: ['Ausgabenpositionen mit Betrag, wahlweise pro Monat oder pro Jahr'],
+      opt: ['Positionen ergänzen oder entfernen, «Standardpositionen ergänzen»'],
+      w: ['Die Summe ist der Bedarf, den Szenarien, Entnahmeplan und Übersicht decken müssen', 'Die Position «Steuern» wird durch die berechneten Steuern ersetzt', 'Hypothekarzinsen und Kreditraten kommen aus «Kredite», hier nicht doppelt erfassen'] },
+    profil: { z: 'Zeitachse und Steuerort der Planung.',
+      must: ['Alter heute (oder Geburtsmonat), Pensionierungsalter, Planungshorizont', 'Zivilstand', 'Postleitzahl bzw. Steuerkanton'],
+      opt: ['Name / Bezeichnung', 'Geburtsmonat oder Alter der Partnerperson', 'Konfession (Kirchensteuer), Steuerfuss-Korrektur der Wohngemeinde'],
+      w: ['Bestimmt die Jahre bis zur Pensionierung, die Dauer des Ruhestands und den AHV-Beginn der Partnerperson (der Geburtsmonat ist genauer als das Alter)', 'Kanton, Gemeinde und Konfession bestimmen die Steuerberechnung'] },
+    vermoegen: { z: 'Alle Vermögenswerte und Liegenschaften.',
+      must: ['Je Position Art und Wert heute', 'Pensionskasse: Altersguthaben bei Pensionierung und Altersrente p. a. laut Vorsorgeausweis', 'Liegenschaft: Verkehrswert, Steuerwert, Eigenmietwert'],
+      opt: ['Wertentwicklung p. a., «für Entnahme verfügbar», verpfändet', 'Liegenschaft: späterer Verkauf mit Alter, Lage, Anlagekosten und Wohnen danach'],
+      w: ['Die Werte werden bis zur Pensionierung aufgezinst und ergeben das investierbare Kapital', 'Ein späterer Verkauf wirkt im Entnahmeplan ab dem Verkaufsalter: Erlös abzüglich Hypothek, Verkaufskosten und Grundstückgewinnsteuer; ab dann gelten die neuen Wohnkosten'] },
+    kredite: { z: 'Hypotheken und andere Schulden.',
+      must: ['Hypothek: Betrag, Zinssatz, zugehörige Liegenschaft', 'Andere Kredite: Restschuld, monatliche Rate, Restlaufzeit'],
+      opt: ['Amortisation p. a. (nur zur Information)'],
+      w: ['Zinsen und Raten erhöhen den Bedarf und fliessen in die Tragbarkeitsprüfung ein', 'Beim Verkauf einer Liegenschaft wird die Hypothek vom Erlös abgezogen'] },
+    vorsorge: { z: 'AHV-Renten und weitere Einkünfte.',
+      must: ['AHV-Rente Person 1 (zuerst wählen, ob der Betrag pro Auszahlung oder als Monatsdurchschnitt gemeint ist)', 'Paare: Betrag Person 2 bis zur Ehepaarrente'],
+      opt: ['AHV-Alter bzw. manueller Beginn Person 2', 'Weitere Einkünfte: Betrag p. a., ab/bis Alter, steuerbar'],
+      w: ['Renten und Einkünfte senken die nötige Kapitalentnahme; die gemeinsame AHV ist auf 150 % der Maximalrente begrenzt', 'AHV Person 2 und Einkünfte wirken ab ihrem Beginn im Zeitverlauf (Entnahmeplan, Stresstests); Szenarien, Steuern und Übersicht rechnen mit dem Stand bei Pensionierung'] },
+    szenarien: { z: 'Varianten bei Pensionierung vergleichen.',
+      must: ['Mindestens ein Szenario: Pensionskasse als Rente, Kapital oder Mix', 'Welches Vermögen verwendet wird'],
+      opt: ['Hypothek amortisieren, Säule 3a, einmalige Ausgaben', 'Kapitalbezug staffeln, Eigenheim verkaufen, Nebenerwerb einrechnen'],
+      w: ['Zeigt je Szenario Kapital, Tragbarkeit der Hypothek (Bankenlogik) und den Cashflow nach Steuern, mit Überschuss oder Lücke', 'Entnahmeplan, Beurteilung und Report arbeiten mit einem von Ihnen gewählten Szenario'] },
+    entnahme: { z: 'Wie lange reicht das Kapital?',
+      must: ['Szenario als Basis wählen', 'Zielbudget und Einkünfte pro Monat (leer = aus Budget und Szenario)'],
+      opt: ['Startkapital, Rendite, Inflation, Entnahmedauer, Restkapital', 'Cash-Reserve, «Budget −10 % in Verlustjahren»'],
+      w: ['Zeigt den Kapitalverlauf pro Jahr, den Vergleich der Anlagestrategien, Stresstests und eine Simulation mit 2\'000 Marktverläufen', 'Alle Werte in heutiger Kaufkraft', 'Berücksichtigt den AHV-Beginn Person 2, Einkünfte ab/bis Alter und einen späteren Immobilienverkauf'] },
+    steuern: { z: 'Steuer auf Kapitalbezug, Rente oder Kapital.',
+      must: ['Kapitalbezug total (PK + 3a), PK-Kapital und alternativ PK-Rente prüfen bzw. anpassen'],
+      w: ['Zeigt die Steuer auf den Kapitalbezug und wie eine Staffelung über mehrere Jahre die Progression senkt', 'Vergleicht Einkommenssteuer auf die Rente mit Kapitalbezugssteuer plus laufender Vermögens- und Ertragssteuer', 'Näherung auf Basis der ESTV-Tarife'] },
+    anlage: { z: 'Das Portfolio, das die Rendite bestimmt.',
+      must: ['Massgebendes Portfolio wählen (manuell, Modellportfolio oder eigenes)'],
+      opt: ['Steuern und Bankkosten, Volatilitätsabzug, Sicherheitsabschläge', 'ETF-Baukasten nach Risikoprofil, eigenes Portfolio mit ISIN'],
+      w: ['Das gewählte Portfolio liefert die erwartete Netto-Rendite und ersetzt die manuelle Renditeannahme in den gewählten Berechnungen', 'Die Produktbeispiele sind keine Empfehlung'] },
+    uebersicht: { z: 'Das Gesamtbild: Vermögen, Entnahme, Tragbarkeit.',
+      must: ['Szenario für Hypothek und Amortisation wählen'],
+      opt: ['Konstellationen anlegen (z. B. Eigenheim verkaufen, PK als Kapital, Erbe)'],
+      w: ['Fasst Vermögen, Entnahme, maximal tragbare Hypothek und Vermögensprojektion zusammen', 'Die Konstellationen zeigen, woraus das Vermögen je nach Entscheid besteht', 'Reine Auswertung auf Stand bei Pensionierung'] },
+    beurteilung: { z: 'Einordnung in Chancen, Risiken und Möglichkeiten.',
+      must: ['Szenario für die Beurteilung wählen'],
+      opt: ['Lebensstil im Ruhestand (Wohnen, Ferien, Auto, Hobbys, Luxus)', 'Lebensziele unter «Annahmen & Daten»'],
+      w: ['Regelbasierte Texte aus Ihren Eingaben; sie ändern sich mit diesen', 'Lebensziele werden gegen den frei verfügbaren Spielraum geprüft', 'Keine Anlage-, Steuer- oder Rechtsberatung'] },
+    report: { z: 'Druckbarer Management Report.',
+      must: ['Szenario wählen'],
+      w: ['Fasst Ausgangslage, Szenarien, Kapitalverlauf, Beurteilung und Fazit in einem Dokument zusammen', '«Drucken / als PDF speichern» erzeugt die Datei'] },
+    settings: { z: 'Allgemeine Annahmen für alle Berechnungen.',
+      must: ['Nichts zwingend, es gelten Standardwerte'],
+      opt: ['Planungsjahr, Rendite, Entnahme-Dynamik, kalkulatorischer Hypothekarzins', 'Unterhalt, maximale Wohnkostenbelastung, AHV-Maximalrente', 'Steuerparameter, Lebensziele'],
+      w: ['Änderungen wirken in allen Tabs', 'Lebensziele erscheinen in der Beurteilung'] }
+  };
+  (function guideInit() {
+    let tip = null, timer = 0, cur = null;
+    const li = a => (a || []).map(x => '<li>' + esc(x) + '</li>').join('');
+    const sec = (c, h, a) => a && a.length ? '<div class="gd-s ' + c + '"><b>' + h + '</b><ul>' + li(a) + '</ul></div>' : '';
+    function html(key, label) {
+      const g = GUIDE[key]; if (!g) return '';
+      return '<div class="gd-h">' + esc(label) + '</div><p class="gd-z">' + esc(g.z) + '</p>' + sec('must', 'Eingeben (nötig)', g.must) + sec('opt', 'Eingeben (optional)', g.opt) + sec('wk', 'Wirkung', g.w);
+    }
+    function hide() { clearTimeout(timer); if (tip) tip.classList.remove('on'); if (cur) { cur.removeAttribute('aria-describedby'); cur = null; } }
+    function show(btn) {
+      const key = btn.dataset.t; if (!GUIDE[key]) return;
+      if (!tip) { tip = document.createElement('div'); tip.id = 'nav-tip'; tip.setAttribute('role', 'tooltip'); document.body.appendChild(tip); }
+      const lab = (btn.querySelector('span:not(.ic)') || btn).textContent.trim();
+      tip.innerHTML = html(key, lab); tip.style.visibility = 'hidden'; tip.classList.add('on');
+      const r = btn.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, vw = innerWidth, vh = innerHeight;
+      let left = r.right + 10, top = r.top - 8;
+      if (left + w > vw - 8) { left = Math.max(8, Math.min(r.left, vw - w - 8)); top = r.bottom + 8; if (top + h > vh - 8) top = Math.max(8, r.top - h - 8); }
+      top = Math.max(8, Math.min(top, vh - h - 8));
+      tip.style.left = left + 'px'; tip.style.top = top + 'px'; tip.style.visibility = '';
+      cur = btn; btn.setAttribute('aria-describedby', 'nav-tip');
+    }
+    const tabOf = e => e.target.closest && e.target.closest('#tabs .tab');
+    document.addEventListener('mouseover', e => { const b = tabOf(e); if (!b || b === cur) return; clearTimeout(timer); timer = setTimeout(() => show(b), 280); });
+    document.addEventListener('mouseout', e => { const b = tabOf(e); if (b && !b.contains(e.relatedTarget)) hide(); });
+    document.addEventListener('focusin', e => { const b = tabOf(e); if (b && b.matches(':focus-visible')) show(b); });
+    document.addEventListener('focusout', e => { if (tabOf(e)) hide(); });
+    document.addEventListener('click', e => { if (tabOf(e)) hide(); }, true);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+    addEventListener('scroll', hide, true); addEventListener('resize', hide);
+  })();
 
   function rAnlage() {
     const I = S.inv, P = S.profile;
