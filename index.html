@@ -2390,7 +2390,7 @@ const MP_PORT = [
 
     // 3 Steuern
     out.push(sec(3, 'Steuern', taxShare < 0.12 ? 'good' : taxShare < 0.2 ? 'mid' : 'bad',
-      [['Kapitalbezug brutto', chf(r.lumpTotal)], ['Steuer auf Kapitalbezug', chf(r.capTax.total)], ['Anteil', pct(taxShare)], ['Einkommenssteuer / J.', chf(r.incTax)], ['Vermögenssteuer / J.', chf(r.wTax)]],
+      [['Kapitalbezug PK + 3a brutto', chf(r.lumpTotal)], ['davon PK', chf(r.pkCap)], ['davon Säule 3a', chf(r.lump3a)], ['Steuer auf Kapitalbezug', chf(r.capTax.total)], ['Anteil', pct(taxShare)], ['Einkommenssteuer / J.', chf(r.incTax)], ['Vermögenssteuer / J.', chf(r.wTax)]],
       [`Kapitalbezüge werden gesondert und tiefer besteuert als Renten; Steueranteil hier ${pct(taxShare)}.`,
        num(s.stagger, 1) > 1 ? `Die Staffelung auf ${num(s.stagger)} Jahre senkt die Progression.` : null,
        'Einkäufe in die Pensionskasse und 3a-Einzahlungen sind vor der Pensionierung abzugsfähig.'].filter(Boolean),
