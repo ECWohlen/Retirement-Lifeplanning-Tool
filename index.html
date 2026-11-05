@@ -398,6 +398,18 @@ a[data-disc]{cursor:pointer;color:var(--ptext,var(--accent));text-decoration:und
 @media screen{.rp-doc .rp-tbl,.rp-doc .tblwrap{overflow-x:auto!important;max-width:100%}}
 @media print{.rp-doc .rp-tbl,.rp-doc .tblwrap{overflow:visible!important}}
 @media print{.rp-doc table{font-size:9.5px!important}.rp-doc table th{font-size:9.5px!important}.rp-doc table th,.rp-doc table td{padding:3px 3px!important}}
+/* Beurteilung: einklappbare Details und Filter */
+.bdet{margin-top:8px}.bdet>summary{cursor:pointer;font-weight:600;font-size:14px;padding:8px 12px;border-radius:8px;background:rgba(128,128,128,.12);list-style:none;user-select:none}
+.bdet>summary::-webkit-details-marker{display:none}
+.bdet>summary::before{content:"▸";display:inline-block;width:1.1em;transition:transform .15s}
+.bdet[open]>summary::before{transform:rotate(90deg)}
+.bdet[open]>summary{margin-bottom:8px}
+.bv-ctl{display:flex;flex-direction:column;gap:8px;margin:10px 0;padding:10px 12px;border-radius:10px;background:rgba(128,128,128,.1)}
+.bv-row{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.bv-cb{display:inline-flex;gap:6px;align-items:center;cursor:pointer;font-size:14px}
+.bv-no-ch .bcol.ch,.bv-no-ri .bcol.ri,.bv-no-mo .bcol.mo{display:none}
+.bv-no-ch.bv-no-ri.bv-no-mo .bsecd{display:none}
+.bv-no-zu .lifed{display:none}
 </style></head>
 <body>
 <header><div id="bgbar"><label>Seitenhintergrund <select id="bg-sel"></select></label><input type="color" id="bg-col" value="#f5f4ef" title="Eigene Farbe" hidden><button type="button" id="lay-btn" class="btn sm">Layout bearbeiten</button><label>Sektionen <select id="card-sel"></select></label><input type="color" id="card-col" value="#ffffff" title="Eigene Farbe" hidden></div><h1>Rentenplanung Schweiz</h1>
@@ -2243,11 +2255,11 @@ const MP_PORT = [
     const sec = (n, title, lvl, kpis, ch, ri, mo) => (secs.push({ n, title: title.replace(/&amp;/g, '&'), lvl, kpis, ch, ri, mo }), `<div class="card bsec">
       <div class="row between wrap"><h2>${n} · ${title}</h2><span class="bpill ${lvl}">${names[lvl]}</span></div>
       ${kp(kpis)}
-      <div class="bgrid"><div class="bcol ch"><h3>Chancen</h3>${li(ch)}</div><div class="bcol ri"><h3>Risiken</h3>${li(ri)}</div><div class="bcol mo"><h3>Möglichkeiten</h3>${li(mo)}</div></div></div>`);
+      <details class="bdet bsecd" data-bk="s${n}"${bvOpen('s' + n)}><summary>Details: Chancen, Risiken, Möglichkeiten</summary><div class="bgrid"><div class="bcol ch"><h3>Chancen</h3>${li(ch)}</div><div class="bcol ri"><h3>Risiken</h3>${li(ri)}</div><div class="bcol mo"><h3>Möglichkeiten</h3>${li(mo)}</div></div></details></div>`);
     const out = [];
     out.push(`<div class="card"><h2>Beurteilung: Chancen, Risiken &amp; Möglichkeiten</h2>
       <div class="fgrid" style="max-width:420px"><div class="fld"><label>Szenario für die Beurteilung</label><div class="ctl"><select id="be-sc">${R.map(x => `<option value="${x.s.id}" ${x.s.id === s.id ? 'selected' : ''}>${esc(x.s.name || 'Szenario')}</option>`).join('')}</select></div></div></div>
-      <p class="muted">Qualitative Einordnung der erarbeiteten Zahlen für Szenario «${esc(s.name || 'Szenario')}» (Pensionierung mit ${num(P.retireAge)}, in ${yrs} Jahren). Kapital- und Entnahmeabschnitte folgen den Eingaben im Tab «Entnahmeplan» (Zielbudget, Startkapital, Rendite, Teuerung, Dauer). Die Texte werden regelbasiert aus Ihren aktuellen Eingaben erzeugt und ändern sich mit ihnen. Keine Anlage-, Steuer- oder Rechtsberatung.</p>
+      ${bvCtl()}<p class="muted">Qualitative Einordnung der erarbeiteten Zahlen für Szenario «${esc(s.name || 'Szenario')}» (Pensionierung mit ${num(P.retireAge)}, in ${yrs} Jahren). Kapital- und Entnahmeabschnitte folgen den Eingaben im Tab «Entnahmeplan» (Zielbudget, Startkapital, Rendite, Teuerung, Dauer). Die Texte werden regelbasiert aus Ihren aktuellen Eingaben erzeugt und ändern sich mit ihnen. Keine Anlage-, Steuer- oder Rechtsberatung.</p>
       <div class="verdict ${overall}"><b>Gesamteindruck: ${names[overall]}.</b> Tragbarkeit der Hypothek: <b>${names[tCls]}</b> · Kapitaldeckung im Ruhestand: <b>${names[cCls]}</b>. ${overall === 'top' ? 'Die Planung trägt mit sehr grossem Spielraum, auch bei schwächeren Renditen; Sie können Mittel gezielt für Wünsche, Familie oder Vermächtnis einsetzen.' : overall === 'vgood' ? 'Die Planung trägt mit deutlicher Reserve, auch wenn die Rendite 1 Prozentpunkt tiefer ausfällt; es bleibt Raum für Wünsche.' : overall === 'good' ? 'Die Planung trägt mit Reserve; die Hauptaufgabe ist der Erhalt dieser Reserve.' : overall === 'mid' ? 'Die Planung geht auf, aber mit wenig Spielraum; kleine Abweichungen können sie kippen.' : 'Die Planung geht in dieser Form nicht auf; Anpassungen bei Budget, Hypothek oder Zeitpunkt sind nötig.'}</div></div>`);
 
 
@@ -2335,7 +2347,7 @@ const MP_PORT = [
       out.push(`<div class="card bsec life t${tier}"><div class="row between wrap"><h2>Ihr Lebensstil im Ruhestand</h2><span class="bpill ${lvlCls}">${['Grosszügig', 'Komfortabel', 'Knapp', 'Ernst', 'Kritisch'][tier]}</span></div>
         <div class="verdict ${lvlCls}"><b>${heads[tier]}.</b> ${intro}</div>
         ${kp([['Zielbudget', chf(tgtM) + ' / Mt.'], ['Einkünfte (Renten etc.)', chf(incM) + ' / Mt.'], ['Tragbare Kapitalentnahme', chf(base) + ' / Mt.'], ['Spielraum', chf(marginM) + ' / Mt.', marginM >= 0 ? 'ok' : 'no']])}
-        <div class="lgrid">${kd('🏠 Wohnen', wohn, 'wohnen')}${kd('✈️ Ferien &amp; Reisen', ferien, 'reisen')}${kd('🚗 Auto &amp; Mobilität', auto, 'mobil')}${kd('🎵 Hobbys &amp; Engagements', hobby, 'hobby')}${kd('🥂 Luxus &amp; Genuss', luxus, 'luxus')}${gl.some(x => x.g.free) ? kd('✍️ Eigene Ziele (Freitext)', gfIntro(gl.filter(x => x.g.free)), 'free') : ''}${extraDims.map(k => kd('⭐ ' + esc(k.slice(2)), 'Persönliches Lebensziel aus Ihrer Erfassung.', k)).join('')}</div>
+        <details class="bdet lifed" data-bk="life"${bvOpen('life')}><summary>Zusatzinfos: Wohnen, Reisen, Auto, Hobbys, Luxus</summary><div class="lgrid">${kd('🏠 Wohnen', wohn, 'wohnen')}${kd('✈️ Ferien &amp; Reisen', ferien, 'reisen')}${kd('🚗 Auto &amp; Mobilität', auto, 'mobil')}${kd('🎵 Hobbys &amp; Engagements', hobby, 'hobby')}${kd('🥂 Luxus &amp; Genuss', luxus, 'luxus')}${gl.some(x => x.g.free) ? kd('✍️ Eigene Ziele (Freitext)', gfIntro(gl.filter(x => x.g.free)), 'free') : ''}${extraDims.map(k => kd('⭐ ' + esc(k.slice(2)), 'Persönliches Lebensziel aus Ihrer Erfassung.', k)).join('')}</div></details>
         ${gl.length ? `<div class="verdict ${mustFail ? 'bad' : impFail || gl.some(x => x.st !== 'ok') ? 'mid' : 'good'}"><b>Ihre Lebensziele (${gl.length}):</b> ${gVerdict}</div>` : '<p class="muted small">Tipp: Unter «Annahmen &amp; Daten → Lebensziele» können Sie Ihre persönlichen Ziele erfassen; sie werden hier gegen den Spielraum geprüft.</p>'}
         ${inspoHtml()}
         <p class="muted small">Freitext-Ziele sind regelbasiert ausgewertet (Stichworte, Beträge), die Links starten eine Websuche mit Ihrem Zieltext (erst beim Klick). Beträge sind Beispiele aus dem rechnerischen Spielraum und lassen sich nicht doppelt ausgeben: Wählen Sie, welche Wünsche Ihnen am wichtigsten sind. Rechnerische Orientierung, keine Zusage und keine Beratung.</p></div>`);
@@ -2422,7 +2434,7 @@ const MP_PORT = [
     if (!acts.length) acts.push('<b>Plan bestätigt:</b> jährlich überprüfen (Marktentwicklung, Zinsen, Gesetze, Gesundheit) und Annahmen im Tab «Annahmen &amp; Daten» nachführen.');
     acts.push('<b>Regelmässig prüfen:</b> mindestens jährlich sowie bei grösseren Ereignissen (Zinssprung, Erbe, Verkauf, Gesundheit).');
     out.push(`<div class="card bsec"><h2>7 · Fazit &amp; nächste Schritte</h2>${li(acts)}<p class="muted">Hinweis: Alle Aussagen beruhen auf Ihren Annahmen und vereinfachten Modellen. Sie ersetzen keine individuelle Beratung durch Bank, Steuer- oder Vorsorgespezialisten.</p></div>`);
-    el.innerHTML = mixNote() + out.join('');
+    el.innerHTML = mixNote() + out.join(''); bvApply(el);
     const path = []; { const f = 1 + zN * 6.5 / 12; let Bk = K0; for (let t = 0; t < N; t++) { Bk += laterE.filter(x => x.t === t).reduce((s, x) => s + x.v, 0); path.push({ age: num(P.retireAge) + t, v: Bk }); Bk = Math.max(0, Bk * (1 + zN) - 12 * WyB[t] * f); } path.push({ age: num(P.retireAge) + N, v: Bk }); }
     BE = { sel, r, s, O, R, K0, tgtM, incM, gapM, base, lo, hi, needK, lastsAge, N, zN, yrs, overall, tCls, cCls, names, secs, acts, cover, path, hasHypo, hasErbe, erbeLtr, taxShare, laterE };
   }
@@ -3708,6 +3720,31 @@ const MP_PORT = [
     const it = el.closest('.item'); if (it) it.style.setProperty('--ac', el.value);
     const a = S.assets.find(x => x.id === parseInt(el.dataset.id, 10)); if (a) { a.color = el.value; save(); assetSum(); }
   });
+/* ---------- Beurteilung: Details einklappbar, Filter (Chancen/Risiken/Möglichkeiten/Zusatzinfos) ---------- */
+function bvS() { const v = S.beView = S.beView || {}; v.open = v.open || {}; v.show = Object.assign({ ch: true, ri: true, mo: true, zu: true }, v.show); return v; }
+function bvOpen(key) { return bvS().open[key] ? ' open' : ''; }
+function bvCtl() {
+  const v = bvS(), cb = (k, t) => `<label class="bv-cb"><input type="checkbox" data-bv="${k}" ${v.show[k] ? 'checked' : ''}> ${t}</label>`;
+  return `<div class="bv-ctl"><div class="bv-row"><b>Anzeige:</b> ${cb('ch', 'Chancen')}${cb('ri', 'Risiken')}${cb('mo', 'Möglichkeiten')}${cb('zu', 'Zusatzinfos (Lebensstil)')}</div>
+    <div class="bv-row"><button class="btn sm" data-bv-act="open">Alles aufklappen</button><button class="btn sm" data-bv-act="close">Alles einklappen</button><span class="muted small">Der Management Report enthält immer alle Inhalte.</span></div></div>`;
+}
+function bvApply(el) {
+  const v = bvS(); ['ch', 'ri', 'mo', 'zu'].forEach(k => el.classList.toggle('bv-no-' + k, !v.show[k]));
+}
+document.addEventListener('toggle', e => {
+  const d = e.target; if (!d || !d.classList || !d.classList.contains('bdet') || !d.dataset.bk) return;
+  bvS().open[d.dataset.bk] = d.open; save();
+}, true);
+document.addEventListener('change', e => {
+  const k = e.target && e.target.dataset && e.target.dataset.bv; if (!k) return;
+  bvS().show[k] = e.target.checked; save(); bvApply($('#p-beurteilung'));
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-bv-act]'); if (!b) return;
+  const open = b.dataset.bvAct === 'open', el = $('#p-beurteilung');
+  el.querySelectorAll('details.bdet').forEach(d => { d.open = open; });
+  const o = bvS().open; el.querySelectorAll('details.bdet').forEach(d => { o[d.dataset.bk] = open; }); save();
+});
 
   function rAnlage() {
     const I = S.inv, P = S.profile;
