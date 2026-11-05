@@ -410,6 +410,21 @@ a[data-disc]{cursor:pointer;color:var(--ptext,var(--accent));text-decoration:und
 .bv-no-ch .bcol.ch,.bv-no-ri .bcol.ri,.bv-no-mo .bcol.mo{display:none}
 .bv-no-ch.bv-no-ri.bv-no-mo .bsecd{display:none}
 .bv-no-zu .lifed{display:none}
+/* Portfolio-Modelle: aufklappbare Alternativen und Sub-Portfolios */
+details.alt>summary.alt-h{cursor:pointer;list-style:none;user-select:none;display:block}
+details.alt>summary.alt-h::-webkit-details-marker{display:none}
+details.alt>summary.alt-h::before{content:"▸";display:inline-block;width:1.1em;transition:transform .15s}
+details.alt[open]>summary.alt-h::before{transform:rotate(90deg)}
+details.alt:not([open]){padding-bottom:10px}details.alt:not([open])>summary.alt-h{margin-bottom:0}
+details.alt[open]>summary.alt-h{margin-bottom:10px}
+.an-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 12px}
+details.pcsub{margin:0 0 14px;border-radius:12px;border:1px solid color-mix(in srgb,#0f9d7a 35%,var(--border,#ccc));background:var(--surface,var(--bg));padding:10px 14px}
+details.pcsub>summary{cursor:pointer;font-size:15px;padding:2px 0;list-style:none;user-select:none}
+details.pcsub>summary::-webkit-details-marker{display:none}
+details.pcsub>summary::before{content:"▸";display:inline-block;width:1.1em;transition:transform .15s}
+details.pcsub[open]>summary::before{transform:rotate(90deg)}
+details.pcsub[open]>summary{margin-bottom:10px}
+.pcs-h{color:var(--muted,#667);font-weight:500;font-size:14px}
 </style></head>
 <body>
 <header><div id="bgbar"><label>Seitenhintergrund <select id="bg-sel"></select></label><input type="color" id="bg-col" value="#f5f4ef" title="Eigene Farbe" hidden><button type="button" id="lay-btn" class="btn sm">Layout bearbeiten</button><label>Sektionen <select id="card-sel"></select></label><input type="color" id="card-col" value="#ffffff" title="Eigene Farbe" hidden></div><h1>Rentenplanung Schweiz</h1>
@@ -2887,11 +2902,11 @@ const MP_PORT = [
   /* Auswahlkarte oben im Tab */
   function pfCardHtml() {
     const I = S.inv;
-    return `<div class="alt alt-pf"><div class="alt-h"><b>Auswahl</b> · Massgebendes Portfolio für alle Berechnungen</div>
+    return `<details class="alt alt-pf" data-ak="pf"${anOpen('pf')}><summary class="alt-h"><b>Auswahl</b> · Massgebendes Portfolio für alle Berechnungen</summary>
       <div class="card"><h2>Welches Portfolio soll gelten?</h2>
         <p class="muted">Das gewählte Portfolio liefert die erwartete Netto-Rendite und ersetzt damit die manuellen Renditeannahmen in den unten gewählten Berechnungen. Netto-Rendite = Brutto-Rendite der Anlageklassen – Produktkosten – Steuern/Bankkosten – Volatilitätsabzug (Schwankungen mindern die tatsächlich verzinste Rendite) – Sicherheitsabschlag. Ihre manuell erfassten Werte bleiben unverändert gespeichert und gelten wieder, sobald Sie «Keines» wählen.</p>
         <div class="fgrid">
-          ${inp('Massgebendes Portfolio', 'inv', null, 'act', I.act, { type: 'select', opts: [['none', 'Keines – manuelle Annahmen'], ['A', 'A · Modellportfolio'], ['B', 'B · ETF-Baukasten'], ['C', 'C · Eigenes Portfolio (ISIN-Erfassung)']] })}
+          ${inp('Massgebendes Portfolio', 'inv', null, 'act', I.act, { type: 'select', opts: [['none', 'Keines – manuelle Annahmen'], ['A', 'A · Modellportfolio'], ['B', 'B · ETF-Baukasten'], ['C', 'C · Eigenes Portfolio (ISIN-Erfassung, auch 2 Sub-Portfolios)']] })}
           ${inp('Steuern und Bankkosten p. a.', 'inv', null, 'tc', I.tc, { suf: '%-Punkte', hint: 'Depotgebühren, Courtagen, Steuer auf Ausschüttungen/Zinsen und Vermögenssteuer. Typisch 0,3 bis 0,6.' })}
           ${inp('Volatilitätsabzug anwenden', 'inv', null, 'vol', I.vol, { type: 'check' })}
         </div>
@@ -2913,7 +2928,7 @@ const MP_PORT = [
           ${Object.keys(PF_CLS).map(c => { const o = I.pa[c] || {}; const cell = (f, st, i) => `<td><div class="ctl"><input type="number" step="${st}" class="pcin" data-pa="${c}" data-f="${f}" value="${o[f] != null ? esc(o[f]) : ''}" placeholder="${PF_DEF[c][i]}"><span class="suf">%</span></div></td>`;
             return `<tr><td>${esc(PF_CLS[c])}</td>${cell('gross', 0.1, 0)}${cell('ter', 0.05, 1)}${cell('sig', 0.5, 2)}</tr>`; }).join('')}
           </tbody></table></div></details>
-      </div></div>`;
+      </div></details>`;
   }
   function pfAssume(el) {
     const c = el.dataset.pa, f = el.dataset.f; S.inv.pa[c] = S.inv.pa[c] || {};
@@ -3745,6 +3760,207 @@ document.addEventListener('click', e => {
   el.querySelectorAll('details.bdet').forEach(d => { d.open = open; });
   const o = bvS().open; el.querySelectorAll('details.bdet').forEach(d => { o[d.dataset.bk] = open; }); save();
 });
+/* ---------- Eigenes Portfolio mit 2 Sub-Portfolios; aufklappbare Alternativen ---------- */
+const AN_DEF = { pf: true, own: true, own1: true, own2: true, a: false, b: false };
+function anS() { const v = S.anView = S.anView || {}; v.open = v.open || {}; return v; }
+function anOpen(k) { const o = anS().open; return (o[k] != null ? o[k] : AN_DEF[k]) ? ' open' : ''; }
+function anBar() { return `<div class="an-bar"><button class="btn sm" data-an="open">Alles aufklappen</button><button class="btn sm" data-an="close">Alles einklappen</button><span class="muted small">Jede Alternative lässt sich einzeln auf- und zuklappen.</span></div>`; }
+  function pfEnsure() {
+    const I = S.inv; if (!I) return;
+    if (I.act == null) I.act = 'none';
+    ['tgEntn', 'tgVerz', 'tgEwig', 'tgDepot'].forEach(k => { if (I[k] == null) I[k] = true; });
+    if (I.vol == null) I.vol = true;                       // Volatilitätsabzug (geometrische statt arithmetische Rendite)
+    if (I.tc == null) I.tc = 0.3;                          // Steuern und Bankkosten p. a. (Prozentpunkte)
+    if (I.hcEntn == null) I.hcEntn = 0;                    // Sicherheitsabschläge je Verwendung (Prozentpunkte)
+    if (I.hcVerz == null) I.hcVerz = 0.5;
+    if (I.hcEwig == null) I.hcEwig = 1;
+    if (I.bk == null) I.bk = 0;                            // Cash-Reserve in Jahren Entnahmen (Gegenmassnahme im Vergleich)
+    if (I.flex == null) I.flex = false;                    // Budget -10 % in Verlustjahren
+    if (!I.pa) I.pa = {};
+    if (!I.c || !Array.isArray(I.c.rows)) I.c = { rows: [] };
+    if (I.cK == null) I.cK = '';
+    const cc = I.c; if (!Array.isArray(cc.rows2)) cc.rows2 = []; if (cc.split == null) cc.split = false; if (cc.sh1 == null) cc.sh1 = 50; if (cc.n1 == null) cc.n1 = ''; if (cc.n2 == null) cc.n2 = '';
+  }
+
+function pcSubs() {
+  const c = S.inv.c, sp = !!c.split, s1 = sp ? Math.min(100, Math.max(0, num(c.sh1))) : 100;
+  const out = [{ k: 1, rows: c.rows, share: s1, name: String(c.n1 || '').trim() || 'Portfolio 1' }];
+  if (sp) out.push({ k: 2, rows: c.rows2, share: 100 - s1, name: String(c.n2 || '').trim() || 'Portfolio 2' });
+  return out;
+}
+function pcFind(id) { const c = S.inv.c; return c.rows.find(x => x.id === id) || (c.rows2 || []).find(x => x.id === id); }
+function pcAll() {
+  const out = [];
+  pcSubs().forEach(s => { const t = s.rows.reduce((a, r) => a + num(r.w), 0); if (!t || !s.share) return; s.rows.forEach(r => out.push(Object.assign({}, r, { w: num(r.w) / t * s.share, _sub: s.k }))); });
+  return out;
+}
+function pcMap(r) { return { name: r.name || r.isin, isin: r.isin, cls: r.cls, w: num(r.w), gross: optNum(r.ret), ter: optNum(r.ter) }; }
+function pfRows(p) {
+  if (p === 'A') return ubsList().map(r => ({ name: r.prod, isin: r.tick, cls: ubsCls(r.cls), w: r.w }));
+  if (p === 'B') { const s = etfSel(); return s.etfs.map((e, i) => ({ name: e.name, isin: e.isin, cls: e.type, w: s.wp[i], ter: e.ter })); }
+  if (p === 'C') return pcAll().map(pcMap);
+  return [];
+}
+  function pfStats(p) {
+    const I = S.inv, rows = (Array.isArray(p) ? p : pfRows(p)).filter(r => r.w > 0), tot = rows.reduce((s, r) => s + r.w, 0);
+    if (!tot) return null;
+    let gross = 0, ter = 0; const wc = {};
+    rows.forEach(r => { const a = pfAs(r.cls), g = r.gross != null ? r.gross : a.gross, t = r.ter != null ? r.ter : a.ter, x = r.w / tot; gross += x * g; ter += x * t; wc[r.cls] = (wc[r.cls] || 0) + x; });
+    const tc = Math.max(0, num(I.tc)), sigma = pfSigma(wc), drag = I.vol ? sigma * sigma / 200 : 0;   // Volatilitätsabzug ≈ σ²/2 (σ in %, Abzug in %-Punkten)
+    const mu = gross - ter - tc, g = mu - drag;
+    return { n: rows.length, wsum: tot, gross, ter, tc, sigma, drag, mu, g, net: g, eq: (wc.equity || 0) * 100, wc };
+  }
+
+function pcSubHtml(s, K) {
+  const rows = s.rows;
+  return `<details class="pcsub" data-ak="own${s.k}"${anOpen('own' + s.k)}><summary><b id="pcs-n${s.k}">${esc(s.name)}</b> <span class="pcs-h" id="pcs-h${s.k}"></span></summary>
+    ${rows.length ? `<div id="pc-body${s.k}" class="pcrows"><div class="pc-head"><span>ISIN</span><span>Bezeichnung</span><span>Anlageklasse</span><span>Gewicht</span><span>Betrag</span><span></span></div>${rows.map(r => { const a = pfAs(r.cls), isin = String(r.isin || '').trim(), ok = isin && isinOk(isin), pr = pfRef(r);
+        const chk = !isin ? '' : ok ? `<a class="pc-ok" href="https://www.justetf.com/de/etf-profile.html?isin=${encodeURIComponent(isin)}" target="_blank" rel="noopener" title="ISIN gültig. Auf justETF öffnen">✓</a>` : '<span class="pc-bad" title="Format oder Prüfziffer ungültig">!</span>';
+        const info = pr ? `Historie CHF <b>${pfFmt(pr.h.since)} %</b> seit Auflage (${pr.h.from}), <b>${pfFmt(pr.h.c5)} %</b> über 5 Jahre <span class="pc-dim">· ${esc(pr.h.basis)}</span><span class="pc-sep">·</span><span title="${esc('Anker ' + pfFmt(pr.mu0) + ' % (' + (pr.h.anchorTxt || 'Klassenannahme') + '), Historie arithmetisch ' + pfFmt(pr.hArith) + ' % mit Gewicht ' + Math.round(pr.wH * 100) + ' %')}">Referenz erwartet <b class="pc-ref">${pfFmt(pr.ref)} %</b> brutto</span>` : `<span class="pc-dim">Keine Historie hinterlegt</span><span class="pc-sep">·</span>Referenz = Klassenannahme <b class="pc-ref">${pfFmt(a.gross)} %</b>`;
+        return `<div class="pcrow"><div class="pc-main">
+          <div class="pc-c pc-isin" data-l="ISIN"><input type="text" class="pcin isin" maxlength="12" value="${esc(r.isin)}" data-pc="${r.id}" data-f="isin" placeholder="IE00B4L5Y983">${chk}</div>
+          <div class="pc-c" data-l="Bezeichnung"><input type="text" class="pcin" value="${esc(r.name)}" data-pc="${r.id}" data-f="name" placeholder="Bezeichnung"></div>
+          <div class="pc-c" data-l="Anlageklasse"><select data-pc="${r.id}" data-f="cls">${Object.keys(PF_CLS).map(c => `<option value="${c}" ${r.cls === c ? 'selected' : ''}>${esc(PF_CLS[c])}</option>`).join('')}</select></div>
+          <div class="pc-c" data-l="Gewicht"><div class="ctl"><input type="number" step="0.5" min="0" class="pcin" value="${esc(r.w)}" data-pc="${r.id}" data-f="w"><span class="suf">%</span></div></div>
+          <div class="pc-c pc-amtv" data-l="Betrag"><span class="amt pc-amt" data-id="${r.id}">${f0(K * num(r.w) / 100)}</span><span class="suf">CHF</span></div>
+          <button class="x" title="Position löschen" data-act="pc-del" data-sub="${s.k}" data-id="${r.id}">×</button></div>
+          <div class="pc-meta"><div class="pc-info">${info}</div>
+            <div class="pc-opt"><label>Eigene Rendite brutto<input type="number" step="0.1" class="pcin" value="${esc(r.ret)}" placeholder="${a.gross}" data-pc="${r.id}" data-f="ret"><span class="suf">%</span></label><label>TER<input type="number" step="0.01" min="0" class="pcin" value="${esc(r.ter)}" placeholder="${a.ter}" data-pc="${r.id}" data-f="ter"><span class="suf">%</span></label></div></div></div>`; }).join('')}</div>` : `<div id="pc-body${s.k}" class="muted">Noch keine Positionen. Mit «+ Position» starten oder eine Vorlage übernehmen.</div>`}
+      <div class="row between wrap" style="margin-top:10px"><div id="pc-sum${s.k}"></div>
+        <div class="row gap wrap"><button class="btn sm pri" data-act="pc-add" data-sub="${s.k}">+ Position</button><button class="btn sm" data-act="pc-norm" data-sub="${s.k}">Auf 100 % normieren</button><button class="btn sm" data-act="pc-copyA" data-sub="${s.k}">Aus Portfolio A übernehmen</button><button class="btn sm" data-act="pc-copyB" data-sub="${s.k}">Aus Portfolio B übernehmen</button><button class="btn sm" data-act="pc-applyref" data-sub="${s.k}" title="Schreibt den Referenzwert in «Rendite brutto» der Positionen mit Daten">Referenz als Rendite übernehmen</button><button class="btn sm" data-act="pc-resetret" data-sub="${s.k}" title="Leert «Rendite brutto» aller Positionen; es gilt wieder die Klassenannahme">Eigene Renditen leeren</button><button class="btn sm" data-act="pc-clear" data-sub="${s.k}">Alle löschen</button></div></div>
+    <div class="row gap wrap" style="margin-top:8px"><span class="muted small">Vorlage laden:</span><button class="btn sm" data-act="pc-tplD" data-sub="${s.k}">Allwetter Defensiv (A)</button><button class="btn sm" data-act="pc-tplC" data-sub="${s.k}">Index Chancenorientiert (A)</button></div></details>`;
+}
+function pcRender() {
+  const box = $('#pc-box'); if (!box) return;
+  const ae = document.activeElement, fs = ae && box.contains(ae) && ae.dataset ? (ae.dataset.pc ? `[data-pc="${ae.dataset.pc}"][data-f="${ae.dataset.f}"]` : ae.dataset.pcs ? `[data-pcs="${ae.dataset.pcs}"]` : null) : null, pos = fs ? ae.selectionStart : null;
+  const I = S.inv, c = I.c, K = I.cK === '' ? anlK() : num(I.cK), subs = pcSubs();
+  const split = c.split ? `<div class="fgrid">
+      <div class="fld"><label>Name Sub-Portfolio 1</label><div class="ctl"><input type="text" data-pcs="n1" value="${esc(c.n1 || '')}" placeholder="z. B. Index"></div></div>
+      <div class="fld"><label>Anteil Sub-Portfolio 1</label><div class="ctl"><input type="number" min="0" max="100" step="1" data-pcs="sh1" value="${esc(c.sh1)}"><span class="suf">%</span></div><small id="pcs-sh2"></small></div>
+      <div class="fld"><label>Name Sub-Portfolio 2</label><div class="ctl"><input type="text" data-pcs="n2" value="${esc(c.n2 || '')}" placeholder="z. B. Allwetter"></div></div></div>` : '';
+  box.innerHTML = `<div class="card"><h2>Eigenes Portfolio</h2>
+    <p class="muted">Erfassen Sie Ihre eigenen Anlagen (ETF, Fonds, Obligationen, Aktien) mit ISIN, Anlageklasse und Gewicht. Sie können das Anlagevermögen nach Risiko in zwei Sub-Portfolios aufteilen (z. B. Index und Allwetter): beide sind gleichzeitig investiert, und Rendite und Schwankung des Gesamtportfolios (gewichtet nach Anteil, mit Diversifikation) fliessen in die Berechnungen ein. Bekannte ISINs aus den Vorlagen A und B ergänzen Name, Klasse und Kosten automatisch. Rendite und Kosten pro Position sind optional; leer = Annahme der Anlageklasse.</p>
+    <div class="fgrid">${inp('Anlagebetrag (gesamt)', 'inv', null, 'cK', I.cK, { suf: 'CHF', ph: f0(K), hint: 'leer = Startkapital wie im Entnahmeplan (Tab 7)' })}
+      <div class="fld"><label>Aufteilung</label><div class="ctl"><label class="bv-cb"><input type="checkbox" data-pcs="split" ${c.split ? 'checked' : ''}> In 2 Sub-Portfolios aufteilen (nach Risiko)</label></div></div></div>
+    ${split}
+    <div class="row gap wrap pc-use">${I.act === 'C' ? '<span class="pill ok">✔ Dieses Portfolio gilt für alle Berechnungen</span>' : '<button class="btn sm pri" data-act="pc-use">Für alle Berechnungen verwenden</button>'}</div></div>
+    ${subs.map(s => pcSubHtml(s, K * s.share / 100)).join('')}
+    <div id="pc-kpi"></div>
+    <div class="card"><h3>Gesamtportfolio</h3><div class="grid2" style="margin-top:6px"><div><h3>Nach Position</h3><div class="chartbox"><canvas id="c-pc1"></canvas></div></div><div><h3>Nach Anlageklasse</h3><div class="chartbox"><canvas id="c-pc2"></canvas></div></div></div>
+    <p class="muted small">Die ISIN-Prüfung kontrolliert Format und Prüfziffer, nicht die Existenz des Produkts. Produktdaten (TER, Domizil, Währung) vor dem Kauf bei justETF, Emittent oder Bank prüfen. Keine Anlageberatung.</p></div>`;
+  pcSum();
+  if (fs) { const n = box.querySelector(fs); if (n) { n.focus(); try { if (pos != null) n.setSelectionRange(pos, pos); } catch (e) { } } }
+}
+  function pcRefCard(st) {
+    const rows = pcAll().filter(r => num(r.w) > 0), tot = rows.reduce((s, r) => s + num(r.w), 0); if (!tot) return '';
+    let cov = 0, hs = 0, h5 = 0, rf = 0;
+    rows.forEach(r => { const x = num(r.w) / tot, pr = pfRef(r), a = pfAs(r.cls); if (pr) { cov += x; hs += x * pr.h.since; h5 += x * pr.h.c5; rf += x * pr.ref; } else rf += x * a.gross; });
+    const f2 = v => v.toFixed(2).replace('.', ',');
+    return `<div class="card" style="margin-top:12px"><h3>Historie und Referenzwert</h3>
+      ${cov > 0 ? `<div class="kv"><span>Historisch gewichtet, seit Auflage (CHF, nach Produktkosten)</span><b>${pfFmt(hs / cov)} % p. a.</b></div>
+      <div class="kv"><span>Historisch gewichtet, letzte 5 Jahre</span><b>${pfFmt(h5 / cov)} % p. a.</b></div>
+      <div class="kv"><span>Abdeckung der Historie</span><b>${Math.round(cov * 100)} % des Portfolios</b></div>` : '<p class="muted small">Für keine der erfassten ISINs sind Historiedaten hinterlegt.</p>'}
+      <div class="kv tot"><span>Referenz: erwartete Brutto-Rendite (Bayes-Mischung aus Annahme und Historie)</span><b>${f2(rf)} % p. a.</b></div>
+      <div class="kv"><span>Im Modell verwendet (Brutto, Klassenannahmen bzw. Ihre Eingaben)</span><b>${f2(st.gross)} % p. a.</b></div>
+      <p class="muted small">Die Historie ist ein geometrischer Durchschnitt (enthält den Volatilitätsabzug bereits) und deshalb nur mit der Netto-Rendite nach Abzügen vergleichbar. Der Referenzwert rechnet sie in eine arithmetische Brutto-Rendite um und gewichtet sie gering, weil 9 bis 14 Jahre Aktienhistorie statistisch wenig über die künftige Rendite aussagen (Standardfehler bei 16 % Schwankung rund 4 Prozentpunkte). Anker sind Ihre Klassenannahme bzw. bei Obligationen die aktuelle Rendite auf Verfall. Die Referenz beeinflusst die Berechnungen nur, wenn Sie sie über «Referenz als Rendite übernehmen» in die Felder schreiben. Daten: iShares CH, justETF, ABN AMRO, Fonds-Factsheet, FTD, Stand 29.10.2026; Umrechnungen EUR/USD in CHF mit geschätzten Wechselkursen.</p></div>`;
+  }
+
+function pcSum() {
+  const I = S.inv, c = I.c, K = I.cK === '' ? anlK() : num(I.cK), subs = pcSubs(), f2 = v => v.toFixed(2).replace('.', ',');
+  const ks = {};
+  subs.forEach(s => {
+    const tot = s.rows.reduce((a, r) => a + num(r.w), 0), ok = Math.abs(tot - 100) < 0.05, Ks = K * s.share / 100;
+    s.rows.forEach(r => { ks[r.id] = Ks; });
+    const sum = $('#pc-sum' + s.k); if (sum) sum.innerHTML = s.rows.length ? `<span class="pill ${ok ? 'ok' : 'no'}">Summe ${tot.toFixed(1)} %</span> ${ok ? '' : `<span class="muted small">Es ${tot < 100 ? 'fehlen ' + (100 - tot).toFixed(1) : 'sind ' + (tot - 100).toFixed(1) + ' zu viel'} %-Punkte (Berechnung erfolgt auf die erfasste Summe normiert).</span>`}` : '';
+    const h = $('#pcs-h' + s.k); if (h) h.textContent = c.split ? `· ${Math.round(s.share * 10) / 10} % · CHF ${f0(Ks)}` : `· CHF ${f0(Ks)}`;
+    const nm = $('#pcs-n' + s.k); if (nm) nm.textContent = s.name;
+  });
+  const sh2 = $('#pcs-sh2'); if (sh2) { const v = num(c.sh1); sh2.textContent = (v < 0 || v > 100) ? 'Anteil muss zwischen 0 und 100 % liegen.' : `Sub-Portfolio 2: ${Math.round((100 - v) * 10) / 10} %`; }
+  $$('#pc-box .pc-amt').forEach(el => { const r = pcFind(parseInt(el.dataset.id, 10)); if (r) el.textContent = f0((ks[r.id] || 0) * num(r.w) / 100); });
+  const st = pfStats('C'), kp = $('#pc-kpi');
+  if (kp) {
+    let tbl = '';
+    if (c.split && st) {
+      const line = (n, sh, amt, x) => `<tr><td>${esc(n)}</td><td>${sh}</td><td>${amt}</td>` + (x ? `<td>${f2(x.gross)} %</td><td>${f2(x.ter)} %</td><td>${f2(x.sigma)} %</td><td>${f2(x.net)} %</td><td>${Math.round(x.eq)} %</td>` : '<td colspan="5" class="muted">keine Positionen</td>') + '</tr>';
+      tbl = `<h4 style="margin:12px 0 6px">Die beiden Sub-Portfolios im Vergleich</h4><div class="tblwrap"><table class="rt"><thead><tr><th>Portfolio</th><th>Anteil</th><th>Betrag (CHF)</th><th>Brutto</th><th>Kosten (TER)</th><th>Schwankung σ</th><th>Netto (nach Abzügen)</th><th>Aktienquote</th></tr></thead><tbody>
+        ${subs.map(s => line(s.name, (Math.round(s.share * 10) / 10) + ' %', f0(K * s.share / 100), pfStats(s.rows.map(pcMap)))).join('')}
+        <tr class="tot"><td><b>Gesamt</b></td><td><b>100 %</b></td><td><b>${f0(K)}</b></td><td><b>${f2(st.gross)} %</b></td><td><b>${f2(st.ter)} %</b></td><td><b>${f2(st.sigma)} %</b></td><td><b>${f2(st.net)} %</b></td><td><b>${Math.round(st.eq)} %</b></td></tr></tbody></table></div>
+        <p class="muted small">Die Schwankung des Gesamtportfolios ist wegen der Diversifikation zwischen den Anlageklassen geringer als der gewichtete Durchschnitt der beiden Teile. Netto = nach Produktkosten, Steuern/Bank und Volatilitätsabzug (Einstellungen in der Karte «Auswahl»).</p>`;
+      const empty = subs.filter(s => s.share > 0 && !s.rows.some(r => num(r.w) > 0)).map(s => s.name);
+      if (empty.length) tbl += `<p class="muted small">Hinweis: ${empty.map(esc).join(', ')} hat einen Anteil, aber keine Positionen mit Gewicht und wird in der Rechnung nicht berücksichtigt.</p>`;
+    }
+    kp.innerHTML = st ? `<div class="card" style="margin-top:12px"><h3>Kennzahlen Gesamtportfolio</h3>
+      <div class="kv"><span>Erwartete Brutto-Rendite p. a.</span><b>${f2(st.gross)} %</b></div>
+      <div class="kv"><span>Gewichtete Kosten (TER)</span><b>${f2(st.ter)} % · ${chf(K * st.ter / 100)} p. a.</b></div>
+      <div class="kv tot"><span>Erwartete Netto-Rendite p. a.</span><b>${f2(st.net)} %</b></div>
+      <div class="kv"><span>Aktienquote</span><b>${Math.round(st.eq)} %</b></div>${tbl}</div>
+      ${pcRefCard(st)}` : '';
+  }
+  const colors = ['#2a78d6', '#eda100', '#008300', '#e34948', '#1baf7a', '#4a3aa7', '#e87ba4', '#898781', '#4aa3b5', '#c8453b', '#8b4fb8', '#6b6a64'];
+  const act = pcAll().filter(r => r.w > 0), byCls = {};
+  act.forEach(r => { byCls[PF_CLS[r.cls] || r.cls] = (byCls[PF_CLS[r.cls] || r.cls] || 0) + r.w; });
+  if (!$('#c-pc1')) return;
+  drawChart('c-pc1', { type: 'doughnut', data: { labels: act.map(r => (c.split ? (r._sub === 2 ? subs[1].name : subs[0].name) + ': ' : '') + (r.name || r.isin || 'Position')), datasets: [{ data: act.map(r => +r.w.toFixed(2)), backgroundColor: act.map((_, i) => colors[i % 12]), borderWidth: 1 }] }, options: { maintainAspectRatio: false, cutout: '50%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: x => `${x.label}: ${x.raw} %` } } } } });
+  drawChart('c-pc2', { type: 'bar', data: { labels: Object.keys(byCls), datasets: [{ data: Object.values(byCls).map(v => +v.toFixed(1)), backgroundColor: '#0b7a63' }] }, options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: x => `${x.raw} %` } } }, scales: { x: { ticks: { callback: v => v + ' %' } } } } });
+}
+  function pcSet(el, final) {
+    const r = pcFind(parseInt(el.dataset.pc, 10)); if (!r) return;
+    const f = el.dataset.f;
+    if (f === 'w' || f === 'ret' || f === 'ter') { r[f] = el.value === '' ? '' : parseFloat(el.value); if (r[f] !== '' && !isFinite(r[f])) r[f] = ''; save(); pcSum(); pfRefresh(); return; }
+    if (f === 'isin') {
+      r.isin = el.value.replace(/\s+/g, '').toUpperCase(); save();
+      if (!final) return;
+      const k = pfKnown(r.isin);
+      if (k) { if (!String(r.name || '').trim()) r.name = k.name; if (k.cls && PF_CLS[k.cls]) r.cls = k.cls; if ((r.ter === '' || r.ter == null) && k.ter != null) r.ter = k.ter; }
+      save(); pcLater(); return;
+    }
+    r[f] = el.value; save();
+    if (final) pcLater();
+  }
+
+function pcAct(a, id, sub) {
+  const c = S.inv.c, k = sub === '2' ? 2 : 1, rows = k === 2 ? c.rows2 : c.rows, setRows = v => { if (k === 2) c.rows2 = v; else c.rows = v; };
+  const mk = r => ({ id: S.nextId++, isin: ((String(r.isin).match(/[A-Z]{2}[A-Z0-9]{9}\d/) || [''])[0]), name: r.name, cls: r.cls, w: Math.round(r.w * 100) / 100, ret: '', ter: r.ter != null ? r.ter : '' });
+  const replace = () => !rows.length || confirm('Bestehende Positionen dieses Sub-Portfolios ersetzen?');
+  if (a === 'pc-use') { S.inv.act = 'C'; save(); pfRefresh(); kpiUpdate(); rAnlage(); return; }
+  if (a === 'pc-add') rows.push({ id: S.nextId++, isin: '', name: '', cls: 'equity', w: '', ret: '', ter: '' });
+  else if (a === 'pc-del') { c.rows = c.rows.filter(r => r.id !== id); c.rows2 = c.rows2.filter(r => r.id !== id); }
+  else if (a === 'pc-applyref') { rows.forEach(r => { const pr = pfRef(r); if (pr) r.ret = Math.round(pr.ref * 10) / 10; }); }
+  else if (a === 'pc-resetret') { rows.forEach(r => { r.ret = ''; }); }
+  else if (a === 'pc-clear') { if (rows.length && !confirm('Alle Positionen dieses Sub-Portfolios löschen?')) return; setRows([]); }
+  else if (a === 'pc-norm') {
+    const t = rows.reduce((s, r) => s + num(r.w), 0); if (!t) return;
+    rows.forEach(r => { r.w = Math.round(num(r.w) / t * 1000) / 10; });
+    const rest = Math.round((100 - rows.reduce((s, r) => s + r.w, 0)) * 10) / 10;
+    if (rest && rows.length) { const big = rows.reduce((x, y) => (y.w > x.w ? y : x)); big.w = Math.round((big.w + rest) * 10) / 10; }
+  } else if (a === 'pc-copyA' || a === 'pc-copyB') {
+    if (!replace()) return;
+    setRows(pfRows(a === 'pc-copyA' ? 'A' : 'B').filter(r => r.w > 0).map(mk));
+  } else if (a === 'pc-tplD' || a === 'pc-tplC') {
+    if (!replace()) return;
+    const p = a === 'pc-tplD' ? 'D' : 'C';
+    setRows(ubsRows(p).map(r => ({ name: r.prod, isin: r.tick, cls: ubsCls(r.cls), w: ubsW(p, r) })).filter(r => r.w > 0).map(mk));
+  }
+  save(); pcRender(); pfRefresh();
+}
+document.addEventListener('toggle', e => {
+  const d = e.target; if (!d || d.tagName !== 'DETAILS' || !d.dataset || !d.dataset.ak) return;
+  anS().open[d.dataset.ak] = d.open; save();
+}, true);
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-an]'); if (!b) return;
+  const open = b.dataset.an === 'open';
+  $$('#p-anlage details[data-ak]').forEach(d => { d.open = open; anS().open[d.dataset.ak] = open; }); save();
+});
+document.addEventListener('change', e => {
+  const el = e.target, k = el.dataset && el.dataset.pcs; if (k !== 'split') return;
+  S.inv.c.split = el.checked; save(); pcRender(); pfRefresh();
+});
+document.addEventListener('input', e => {
+  const el = e.target, k = el.dataset && el.dataset.pcs; if (!k || k === 'split') return;
+  if (k === 'sh1') S.inv.c.sh1 = el.value === '' ? '' : parseFloat(el.value); else S.inv.c[k] = el.value;
+  save(); pcSum(); pfRefresh();
+});
 
   function rAnlage() {
     const I = S.inv, P = S.profile;
@@ -3752,9 +3968,11 @@ document.addEventListener('click', e => {
     pfEnsure();
     $('#p-anlage').innerHTML = `
       <div class="warn"><b>Modellrechnung, keine Anlageberatung.</b> Dieser Tab zeigt Beispielportfolios und Rechenmodelle. Er ist keine Anlageberatung, Anlageempfehlung oder Aufforderung zum Kauf oder Verkauf von Finanzinstrumenten und berücksichtigt Ihre Kenntnisse, Erfahrungen, finanzielle Situation und Anlageziele nicht vollständig. Renditen, Kosten und Schwankungen sind Annahmen und nicht garantiert; Produktdaten ohne Gewähr. Vor einem Anlageentscheid sollten Sie sich individuell beraten lassen.</div>
+      ${anBar()}
+      <details class="alt alt-own" data-ak="own"${anOpen('own')}><summary class="alt-h"><b>Eigenes Portfolio</b> · ISIN-Erfassung, optional in 2 Sub-Portfolios aufgeteilt</summary><div id="pc-box"></div></details>
       ${pfCardHtml()}
-      <div class="alt alt-ubs"><div class="alt-h"><b>Alternative A</b> · Modellportfolios CHF (Produktbeispiele)</div><div id="ubs-box"></div></div>
-      <div class="alt alt-etf"><div class="alt-h"><b>Alternative B</b> · Eigener ETF-Baukasten (neutral, anbieterunabhängig)</div>
+      <details class="alt alt-ubs" data-ak="a"${anOpen('a')}><summary class="alt-h"><b>Alternative A</b> · Modellportfolios CHF (Produktbeispiele)</summary><div id="ubs-box"></div></details>
+      <details class="alt alt-etf" data-ak="b"${anOpen('b')}><summary class="alt-h"><b>Alternative B</b> · Eigener ETF-Baukasten (neutral, anbieterunabhängig)</summary>
       <div class="card"><h2>Eigener ETF-Baukasten nach Risikoprofil</h2>
         <p class="muted">Beispielaufteilung (Modellrechnung) des verfügbaren Kapitals auf ETFs. Wählen Sie Ihr Risikoprofil und Schwerpunkte. Kennzahlen aus öffentlichen Angaben der Anbieter (TER); aktuelle Daten bei justETF prüfen. Keine individuelle Anlageberatung. <b>Hinweis:</b> Einzelne Produkte dieses Baukastens sind auf EUR ausgerichtet (z. B. EUR-gesicherte Anleihen, Geldmarkt EUR). Für CHF-Anleger sind die Modellportfolios oben (Alternative A) die passendere Grundlage.</p>
         <div class="fgrid">
@@ -3763,8 +3981,7 @@ document.addEventListener('click', e => {
           ${inp('Nachhaltigkeit (ESG) bevorzugen', 'inv', null, 'esg', I.esg, { type: 'check' })}
           ${inp('Gold als Beimischung', 'inv', null, 'gold', I.gold, { type: 'check' })}
         </div></div>
-      <div id="an-out"></div></div>
-      <div class="alt alt-own"><div class="alt-h"><b>Alternative C</b> · Eigenes Portfolio (ISIN-Erfassung)</div><div id="pc-box"></div></div>`;
+      <div id="an-out"></div></details>`;
     ubsRender();
     anlOut();
     pcRender();
@@ -4074,7 +4291,7 @@ document.addEventListener('click', e => {
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-act]'); if (!b) return;
     const a = b.dataset.act, id = b.dataset.id ? parseInt(b.dataset.id, 10) : null;
-    if (a.startsWith('pc-')) { pcAct(a, id); return; }
+    if (a.startsWith('pc-')) { pcAct(a, id, b.dataset.sub); return; }
     if (a === 'mix-step') { const mid = parseInt(b.dataset.mid, 10), f = b.dataset.f, sl = document.querySelector(`input[data-mix="${mid}"][data-f="${f}"]`); if (sl) { const d = parseFloat(b.dataset.d) * (f === 'v' ? 5000 : 1); sl.value = Math.min(parseFloat(sl.max), Math.max(parseFloat(sl.min), parseFloat(sl.value) + d)); mixApply(mid, f, parseFloat(sl.value)); } return; }
     if (a === 'mix-reset') { delete S.entn.mix; save(); rMix(); entOut(); const st = document.querySelector('#p-entnahme [data-k="start"]'), sel = entScenario(); if (st && sel) st.placeholder = f0(entK0(S.entn, sel.r)); return; }
     if (a === 'del') {
