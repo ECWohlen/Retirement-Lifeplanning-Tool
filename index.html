@@ -3480,6 +3480,15 @@ const MP_PORT = [
     kdApply(o); KD.bad = !ok; KD.msg = 'Datei geladen: «' + name + '», ' + kdFmt(d) + (ok ? ' (in der Liste abgelegt).' : ' (Liste voll – nicht abgelegt).');
     showTab('kunden');
   }
+  function kdNew() {
+    if (!confirm('Neuen Kunden anlegen? Die aktuellen Eingaben werden geleert. Nicht gespeicherte Änderungen gehen verloren (zuerst «Stand speichern» wählen, falls nötig).')) return;
+    const n = prompt('Name / Bezeichnung des neuen Kunden:', ''); if (n == null) return;
+    const name = n.trim(); if (!name) { alert('Bitte einen Namen eingeben.'); return; }
+    kdApply(freshState()); S.profile.name = name; save();
+    const ok = kdAdd(kdMeta(name, new Date()), S);
+    KD.bad = !ok; KD.msg = 'Neuer Kunde angelegt: «' + name + '».';
+    showTab('profil');
+  }
   function kdAll() {
     if (!kdList().length) return;
     if (!confirm('Alle in diesem Browser gespeicherten Stände aus der Liste löschen? Heruntergeladene Dateien bleiben bestehen.')) return;
@@ -3506,7 +3515,7 @@ const MP_PORT = [
         ${KD.msg ? `<div class="verdict ${KD.bad ? 'bad' : 'good'}" id="kd-msg" role="status">${esc(KD.msg)}</div>` : ''}
         <div class="fld"><label for="kd-sel">Gespeicherter Stand (${L.length})</label><div class="ctl"><select id="kd-sel" ${L.length ? '' : 'disabled'}>${opts || '<option>– noch keine gespeicherten Stände –</option>'}</select></div></div>
         <p class="muted small" id="kd-info"></p>
-        <div class="row gap wrap"><button class="btn pri" data-kd="load">Laden</button><button class="btn" data-kd="dl">Als Datei herunterladen</button><button class="btn danger" data-kd="del">Löschen</button></div></div>
+        <div class="row gap wrap"><button class="btn pri" data-kd="load">Laden</button><button class="btn" data-kd="dl">Als Datei herunterladen</button><button class="btn danger" data-kd="del">Löschen</button><button class="btn" data-kd="new" title="Leert die Eingaben und legt einen neuen Kunden mit Namen an">＋ Neuer Kunde</button></div></div>
       <div class="card"><h2>Aktuellen Stand speichern</h2>
         <div class="fgrid">${inp('Name / Bezeichnung', 'profile', null, 'name', P.name, { type: 'text', hint: 'Dieselbe Angabe wie unter «Profil &amp; Wohnort → Persönliche Angaben».' })}</div>
         <p class="muted small">Dateiname: <b id="kd-prev"></b><br>Die Datei enthält Name / Bezeichnung, Datum und Uhrzeit der Speicherung.</p>
@@ -3521,7 +3530,7 @@ const MP_PORT = [
     const b = e.target.closest('[data-kd]'); if (!b || b.disabled) return;
     const a = b.dataset.kd;
     if (a === 'save') kdSave(true); else if (a === 'save-list') kdSave(false);
-    else if (a === 'load') kdLoad(KD.sel); else if (a === 'del') kdDelete(KD.sel); else if (a === 'dl') kdDownload(KD.sel); else if (a === 'all') kdAll();
+    else if (a === 'load') kdLoad(KD.sel); else if (a === 'del') kdDelete(KD.sel); else if (a === 'dl') kdDownload(KD.sel); else if (a === 'all') kdAll(); else if (a === 'new') kdNew();
   });
   document.addEventListener('change', e => { if (e.target.id === 'kd-sel') { KD.sel = e.target.value; KD.msg = ''; const m = $('#kd-msg'); if (m) m.remove(); kdInfo(); } });
   document.addEventListener('input', e => { if (curTab === 'kunden' && e.target.dataset && e.target.dataset.s === 'profile' && e.target.dataset.k === 'name') setTimeout(kdPrev, 0); });
